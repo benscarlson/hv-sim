@@ -12,7 +12,17 @@ theme_set(theme_pdf)
 .figP <- 'analysis'
 .resP <- 'analysis'
 
+.simName <- 'hvball_overlap_highdim'
+.cap <- 'Hypervolumes created using expectation_ball'
+
 set.seed(1504)
+
+#TODO: better way of setting up the data that should be more extensible
+# first, do one row for each type of distribution (e.g. n)
+# then, create reps for each of these types
+# if doing pair overlap, create two of each type
+# if doing many reps per type (for variability), do, say 30
+# if doing pair and many reps, do 2*30 for each type
 
 #-- Set up for testing > 2 dimensions
 dims <- c(2,3,4,5)
@@ -43,14 +53,13 @@ t1 <- Sys.time()
 #create the hvs
 hvdf <- dat %>%
   mutate(
-    hv=map(ndat,hypervolume_gaussian,verbose=FALSE),
+    #hv=map(ndat,hypervolume_gaussian,verbose=FALSE),
+    hv=map(ndat,expectation_ball),
     hvol=map_dbl(hv,get_volume))
 
-t2 <- Sys.time()
+message(glue('Complete in {diffmin(t1)} minutes'))
 
-message(glue('Complete in {diffmin(t1,t2)} minutes'))
-
-saveRDS(hvdf,file.path(.figP,'highdim_hvdat.rds'))
+#saveRDS(hvdf,file.path(.figP,'highdim_hvdat.rds'))
 
 #----
 #---- estimate overlap
@@ -76,14 +85,13 @@ gdat <- ovdf %>%
   ungroup %>%
   mutate(dim=as.factor(dim))
 
-
 p <- ggplot(gdat,aes(x=log2(n),y=hov,color=dim)) + 
   geom_line(size=1) +
   #geom_hline(yintercept=0.95,linetype='dashed',size=0.5) +
   scale_x_continuous(breaks=ex,labels=2^ex) +
   scale_color_brewer(palette='Dark2') +
   lims(y=0:1) +
-  labs(x='n',y='Overlap (Jaccard)',color='Dimensions') +
+  labs(x='n',y='Overlap (Jaccard)',color='Dimensions',caption=.cap) +
   theme(legend.position = c(.8, .2)); print(p)
 
-ggsave(file.path(.figP,'overlap_highdim.pdf'),plot=p,height=5,width=7,device=cairo_pdf) #6,
+ggsave(file.path(.figP,glue('{.simName}.pdf')),plot=p,height=5,width=7,device=cairo_pdf) #6,

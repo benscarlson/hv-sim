@@ -1,15 +1,18 @@
+
+
 options(rgl.useNULL = TRUE)
 
 library(hypervolume)
 library(MASS)
 library(tidyverse)
 
-theme_set(theme_classic())
+source('src/funs.r')
+theme_set(theme_pdf)
 
 set.seed(1504)
 
 sig <- matrix(c(1,0,0,1),ncol=2)
-n <- 5000
+n <- 400 #recommended obsevations should be > exp(number of axes). exp(2) = 7.39
 mu <- c(0,0)
 
 n1 <- mvrnorm(n,mu,sig) %>% as.data.frame %>% mutate(niche_name='n1')
@@ -17,27 +20,44 @@ n2 <- mvrnorm(n,mu,sig) %>% as.data.frame %>% mutate(niche_name='n2')
 
 dat <- bind_rows(n1,n2)
 
-#TODO: do Jaccard of these ellipses
 ggplot(dat,aes(x=V1,y=V2,color=niche_name)) +
   geom_point() +
-  stat_ellipse(type='norm')
+  stat_ellipse(type='norm') #
 
-bw <- estimate_bandwidth(dat %>% select(-niche_name))
+#bw <- estimate_bandwidth(dat %>% select(-niche_name))
 
 #ceiling((10^(3 + sqrt(ncol(dat %>% select(-niche_name)))))/nrow(dat)) #default for samples.per.point in hypervolume call?
 
 #Try changing chunk size and requesting more memory
 
+# hv1 <- dat %>% 
+#   filter(niche_name=='n1') %>%
+#   select(-niche_name) %>%
+#   expectation_convex(verbose=FALSE,check.memory=FALSE)
+# 
+# hv2 <- dat %>% 
+#   filter(niche_name=='n2') %>%
+#   select(-niche_name) %>%
+#   expectation_convex(verbose=FALSE,check.memory=FALSE)
+
 hvdf <- dat %>%
-  nest(-niche_name) %>%
-  mutate(hv=map(data,hypervolume_gaussian,verbose=FALSE,kde.bandwidth=bw),
-         vol=map_dbl(hv,get_volume)) #, ,samples.per.point=1e4
+  group_by(niche_name) %>%
+  nest %>%
+  mutate(
+    #hv=map(data,hypervolume_gaussian,verbose=FALSE),
+    hv=map(data,hypervolume_svm,verbose=FALSE)
+    #hv=map(data,expectation_convex,verbose=FALSE,check.memory=FALSE)#,
+    #hv=map(data,expectation_ball)#,
+    #hv=map(data,expectation_box)#,
+    #vol=map_dbl(hv,get_volume)) #, ,samples.per.point=1e4
+  )
 
 
-hvdf <- hvdf %>% mutate(vol=map_dbl(hv,get_volume))
+#hvdf <- hvdf %>% mutate(vol=map_dbl(hv,get_volume))
 
 #10^(3+sqrt(ncol(dat %>% select(-niche_name)))) #default num.points.max in hypervolume_set
-hvset <- hypervolume_set(hvdf$hv[[1]],hvdf$hv[[2]],check.memory = FALSE) #, num.points.max = 1e6
+hvset <- hypervolume_set(hvdf$hv[[1]],hvdf$hv[[2]],
+  distance.factor=4, check.memory = FALSE) #, num.points.max = 1e6
 hvset@HVList$Intersection@Volume / hvset@HVList$Union@Volume #Jaccard
 
 hvset2 <- hypervolume_set(hvdf$hv[[1]],hvdf$hv[[1]],check.memory = FALSE) #, num.points.max = 1e6
@@ -55,8 +75,8 @@ plot(hvl,show.density=FALSE,show.data=FALSE,show.contour=FALSE) #shows random po
 plot(hvl,show.density=FALSE,show.random=FALSE,show.contour=FALSE) #shows data
 plot(hvl,show.density=TRUE,show.data=TRUE,show.random=FALSE,show.contour=TRUE) #density and data
 plot(hvl,show.density=FALSE,show.data=FALSE,show.random=FALSE,show.contour=TRUE)
-plot(hvl,show.density=FALSE,show.data=TRUE,
-     show.random=FALSE,show.contour=TRUE,show.legend=FALSE) #data and contour
+plot(hvl,show.density=FALSE,show.data=TRUE, show.centroid = FALSE,
+     show.random=FALSE,show.contour=TRUE, show.legend=FALSE) #data and contour
 plot(hvl,show.density=FALSE,show.data=FALSE,show.random=FALSE,show.contour=TRUE,
      contour.kde.level=0.05)
 plot(hvl,show.density=FALSE,show.data=FALSE,show.random=FALSE,show.contour=TRUE,
