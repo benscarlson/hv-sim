@@ -3,11 +3,12 @@ options(rgl.useNULL = TRUE)
 library(glue)
 library(hypervolume)
 library(MASS)
+library(multidplyr)
 library(sf)
 library(tidyverse)
 
-source('src/funs.r')
-theme_set(themepdf)
+source('src/funs/themes.r')
+theme_set(theme_eda)
 
 .figP <- 'analysis'
 .resP <- 'analysis'
@@ -106,5 +107,6 @@ p <- ggplot(gdat,aes(x=log2(n),y=mean,color=source,fill=source)) +
   labs(title=.title, x='n',y='Overlap (Jaccard)',caption=.cap) +
   theme(legend.position = c(.8, .2)); print(p)
 
-ggsave(file.path(.figP,glue('{.simName}.pdf')),plot=p,height=4,width=6,device=cairo_pdf) #6,
 saveRDS(p,file.path(.figP,glue('{.simName}_gg.rds')))
+ggsave(file.path(.figP,glue('{.simName}.pdf')),plot=p,height=4,width=6,device=cairo_pdf) #6,
+
